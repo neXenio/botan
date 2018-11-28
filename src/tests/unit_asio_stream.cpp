@@ -72,36 +72,34 @@ struct MockSocket
    template <typename ConstBufferSequence>
    std::size_t write_some(
       const ConstBufferSequence& buffers,
-      const boost::system::error_code& ec = boost::system::error_code())
+      boost::system::error_code& ec)
       {
-      auto size = boost::asio::buffer_size(buffers);
       return write_some_fun(buffers, ec);
       }
 
    std::function<std::size_t(const boost::asio::const_buffer& buffers,
-                             const boost::system::error_code& ec)>
+                             boost::system::error_code& ec)>
    write_some_fun = [](const boost::asio::const_buffer& buffers,
-   const boost::system::error_code& ec) { return 0; };
+   boost::system::error_code& ec) { return 0; };
 
    template <typename MutableBufferSequence>
    std::size_t read_some(
       const MutableBufferSequence& buffers,
-      const boost::system::error_code& ec = boost::system::error_code())
+      boost::system::error_code& ec)
       {
-      auto size = boost::asio::buffer_size(buffers);
       return read_some_fun(buffers, ec);
       }
 
    std::function<std::size_t(const boost::asio::mutable_buffer& buffers,
-                             const boost::system::error_code& ec)>
+                             boost::system::error_code& ec)>
    read_some_fun = [](const boost::asio::mutable_buffer& buffers,
-   const boost::system::error_code& ec) { return 0; };
+   boost::system::error_code& ec) { return 0; };
 
    void set_default_read_some_fun(std::shared_ptr<TestState> s)
       {
-      read_some_fun = [=](
-                         const boost::asio::mutable_buffer& buffers,
-                         const boost::system::error_code& ec)
+      read_some_fun = [ = ](
+                         const boost::asio::mutable_buffer & buffers,
+                         boost::system::error_code & ec)
          {
          s->socket_read_count += 1;
          return buf_size;
@@ -110,9 +108,9 @@ struct MockSocket
 
    void set_default_write_some_fun(std::shared_ptr<TestState> s)
       {
-      write_some_fun = [=](
-                          const boost::asio::const_buffer& buffers,
-                          const boost::system::error_code& ec)
+      write_some_fun = [ = ](
+                          const boost::asio::const_buffer & buffers,
+                          boost::system::error_code & ec)
          {
          s->socket_write_count += 1;
          return buf_size;
@@ -156,7 +154,7 @@ static std::shared_ptr<TestState> setupTestSyncRead(MockChannel& channel,
                                std::size_t buf_size)
       {
       s->channel_recv_count++;
-      if(s->channel_recv_count >= 3)
+      if (s->channel_recv_count >= 3)
          {
          channel.tls_record_received(0, buf, buf_size);
          }
@@ -242,7 +240,8 @@ class ASIO_Stream_Tests final : public Test
          Botan::Stream<MockSocket&, MockChannel> ssl{socket};
 
          test_read_some_basic_case(result, ssl, socket);
-         test_read_some_read_nothing(result, ssl, socket);
+         test_read_some_error(result, ssl, socket);
+         test_read_some_reads_data_in_chunks(result, ssl, socket);
 
          return result;
          }
@@ -254,21 +253,50 @@ class ASIO_Stream_Tests final : public Test
 
          char buf[128];
          boost::system::error_code ec;
-         ssl.read_some(boost::asio::buffer(buf, sizeof(buf)), ec);
+         auto bytes_read = ssl.read_some(boost::asio::buffer(buf, sizeof(buf)), ec);
 
          result.test_eq("some data is read", s->socket_read_count, 3);
          }
 
-      void test_read_some_read_nothing(Test::Result& result, TestStream& ssl,
-                                       MockSocket& socket)
+      void test_read_some_error(Test::Result& result, TestStream& ssl, MockSocket& socket)
          {
          auto s = setupTestSyncRead(ssl.channel(), socket);
 
+         socket.read_some_fun = [s, &socket](
+                                   const boost::asio::mutable_buffer & buffers,
+                                   boost::system::error_code & ec)
+            {
+            s->socket_read_count += 1;
+            if (s->socket_read_count == 2)
+               {
+               ec.assign(1, ec.category());
+               }
+            return socket.buf_size;
+            };
+
+
          char buf[128];
          boost::system::error_code ec;
-         ssl.read_some(boost::asio::buffer(buf, 0), ec);
+         auto bytes_read = ssl.read_some(boost::asio::buffer(buf, sizeof(buf)), ec);
 
-         result.test_eq("no data is written", s->socket_write_count, 0);
+         result.test_eq("stream stops reading after error", s->socket_read_count, 2);
+         }
+
+      void test_read_some_reads_data_in_chunks(Test::Result& result, TestStream& ssl,
+            MockSocket& socket)
+         {
+
+         auto s = setupTestSyncRead(ssl.channel(), socket);
+
+         char buf[socket.buf_size / 2];
+         boost::system::error_code ec;
+         auto bytes_read = ssl.read_some(boost::asio::buffer(buf, sizeof(buf)), ec);
+         result.test_eq("stream consumes some data", bytes_read, socket.buf_size / 2);
+         result.test_eq("data read from socket", s->socket_read_count, 3);
+
+         bytes_read += ssl.read_some(boost::asio::buffer(buf, sizeof(buf)), ec);
+         result.test_eq("stream consumes some more data", bytes_read, socket.buf_size);
+         result.test_eq("no further data read from socket", s->socket_read_count, 3);
          }
 
       Test::Result test_write_some()
@@ -279,6 +307,7 @@ class ASIO_Stream_Tests final : public Test
          Botan::Stream<MockSocket&, MockChannel> ssl{socket};
 
          test_write_some_basic_case(result, ssl, socket);
+         test_write_some_big_data(result, ssl, socket);
          test_write_some_write_nothing(result, ssl, socket);
 
          return result;
@@ -296,6 +325,22 @@ class ASIO_Stream_Tests final : public Test
 
          result.test_eq("some data is written", s->socket_write_count,
                         ceil((float)buffer.size() / socket.buf_size));
+         result.test_eq("channel calls send", s->channel_send_count, 1);
+         }
+
+      void test_write_some_big_data(Test::Result& result, TestStream& ssl,
+                                    MockSocket& socket)
+         {
+         auto s = setupTestSyncWrite(ssl.channel(), socket);
+
+         char buf[18 * 1024];
+         boost::system::error_code ec;
+         auto buffer = boost::asio::buffer(buf, sizeof(buf));
+         ssl.write_some(buffer, ec);
+
+         result.test_eq("some data is written", s->socket_write_count,
+                        ceil((float)buffer.size() / socket.buf_size));
+         result.test_eq("channel calls send", s->channel_send_count, 1);
          }
 
       void test_write_some_write_nothing(Test::Result& result, TestStream& ssl,
@@ -309,6 +354,7 @@ class ASIO_Stream_Tests final : public Test
          ssl.write_some(buffer, ec);
 
          result.test_eq("no data is written", s->socket_write_count, 0);
+         result.test_eq("channel calls send nonetheless", s->channel_send_count, 1);
          }
 
    public:
