@@ -1,0 +1,7 @@
+<header:public>
+asio_async_handshake_op.h
+asio_async_read_op.h
+asio_async_write_op.h
+asio_convert_exceptions.h
+asio_stream_core.h
+</header:public>
