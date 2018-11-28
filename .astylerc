@@ -1,0 +1,12 @@
+--style=whitesmith
+--indent=spaces=3
+--align-pointer=type
+--align-reference=type
+--max-code-length=120
+--attach-namespaces
+--indent-preproc-block
+--indent-preproc-define
+--unpad-paren
+--keep-one-line-blocks
+--keep-one-line-statements
+--mode=c
