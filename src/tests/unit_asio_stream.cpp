@@ -49,7 +49,7 @@ class MockChannel
       std::function<bool()> is_active_fun = [] { return false; };
 
    public:
-      // funcitons forwarding to callbacks to be triggered from the outside
+      // functions forwarding to callbacks to be triggered from the outside
       //
       void tls_emit_data(const uint8_t buf[], std::size_t buf_size)
          {
@@ -70,9 +70,7 @@ struct MockSocket
    const std::size_t buf_size = 128;
 
    template <typename ConstBufferSequence>
-   std::size_t write_some(
-      const ConstBufferSequence& buffers,
-      boost::system::error_code& ec)
+   std::size_t write_some(const ConstBufferSequence& buffers, boost::system::error_code& ec)
       {
       return write_some_fun(buffers, ec);
       }
@@ -83,9 +81,7 @@ struct MockSocket
    boost::system::error_code& ec) { return 0; };
 
    template <typename MutableBufferSequence>
-   std::size_t read_some(
-      const MutableBufferSequence& buffers,
-      boost::system::error_code& ec)
+   std::size_t read_some(const MutableBufferSequence& buffers, boost::system::error_code& ec)
       {
       return read_some_fun(buffers, ec);
       }
@@ -97,9 +93,7 @@ struct MockSocket
 
    void set_default_read_some_fun(std::shared_ptr<TestState> s)
       {
-      read_some_fun = [ = ](
-                         const boost::asio::mutable_buffer & buffers,
-                         boost::system::error_code & ec)
+      read_some_fun = [=](const boost::asio::mutable_buffer& buffers, boost::system::error_code& ec)
          {
          s->socket_read_count += 1;
          return buf_size;
@@ -108,9 +102,7 @@ struct MockSocket
 
    void set_default_write_some_fun(std::shared_ptr<TestState> s)
       {
-      write_some_fun = [ = ](
-                          const boost::asio::const_buffer & buffers,
-                          boost::system::error_code & ec)
+      write_some_fun = [=](const boost::asio::const_buffer& buffers, boost::system::error_code& ec)
          {
          s->socket_write_count += 1;
          return buf_size;
@@ -148,13 +140,12 @@ static std::shared_ptr<TestState> setupTestHandshake(MockChannel& channel,
 static std::shared_ptr<TestState> setupTestSyncRead(MockChannel& channel,
       MockSocket& socket)
    {
-   auto s = std::shared_ptr<TestState>(new TestState());
+   auto s = std::make_shared<TestState>();
 
-   channel.received_data_fun = [&s, &channel](const uint8_t buf[],
-                               std::size_t buf_size)
+   channel.received_data_fun = [s, &channel](const uint8_t buf[], std::size_t buf_size)
       {
       s->channel_recv_count++;
-      if (s->channel_recv_count >= 3)
+      if(s->channel_recv_count >= 3)
          {
          channel.tls_record_received(0, buf, buf_size);
          }
@@ -170,10 +161,10 @@ static std::shared_ptr<TestState> setupTestSyncRead(MockChannel& channel,
 static std::shared_ptr<TestState> setupTestSyncWrite(MockChannel& channel,
       MockSocket& socket)
    {
-   auto s = std::shared_ptr<TestState>(new TestState());
+   auto s = std::make_shared<TestState>();
 
-   channel.send_data_fun = [&s, &channel](const uint8_t buf[],
-                                          std::size_t buf_size)
+   channel.send_data_fun = [s, &channel](const uint8_t buf[],
+                                         std::size_t buf_size)
       {
       s->channel_send_count++;
       channel.tls_emit_data(buf, buf_size);
@@ -262,18 +253,15 @@ class ASIO_Stream_Tests final : public Test
          {
          auto s = setupTestSyncRead(ssl.channel(), socket);
 
-         socket.read_some_fun = [s, &socket](
-                                   const boost::asio::mutable_buffer & buffers,
-                                   boost::system::error_code & ec)
+         socket.read_some_fun = [s, &socket](const boost::asio::mutable_buffer& buffers, boost::system::error_code& ec)
             {
             s->socket_read_count += 1;
-            if (s->socket_read_count == 2)
+            if(s->socket_read_count == 2)
                {
                ec.assign(1, ec.category());
                }
             return socket.buf_size;
             };
-
 
          char buf[128];
          boost::system::error_code ec;
@@ -282,10 +270,8 @@ class ASIO_Stream_Tests final : public Test
          result.test_eq("stream stops reading after error", s->socket_read_count, 2);
          }
 
-      void test_read_some_reads_data_in_chunks(Test::Result& result, TestStream& ssl,
-            MockSocket& socket)
+      void test_read_some_reads_data_in_chunks(Test::Result& result, TestStream& ssl, MockSocket& socket)
          {
-
          auto s = setupTestSyncRead(ssl.channel(), socket);
 
          char buf[socket.buf_size / 2];
