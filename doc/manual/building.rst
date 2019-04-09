@@ -746,7 +746,7 @@ Include the contents of FILE into the generated build.h
 Set distribution specific version information
 
 --linux-certstore-default-file=STRING
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Set distribution specific path to file including trusted CAs as PEMs.
 
