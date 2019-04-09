@@ -26,7 +26,7 @@ class PEM_Tests : public Test
          const std::string pem1 = Botan::PEM_Code::encode(vec1, "BUNNY", 3);
          const std::string pem2 = Botan::PEM_Code::encode(vec2, "BUNNY", 3);
 
-         const std::string pems = pem1 + "\n" + pem2;
+         const std::string pems = pem1 + "\n#pretty long comment\n" + pem2;
 
          result.test_eq("PEM encoding", pem1, "-----BEGIN BUNNY-----\nAAE\nCAw\nQ=\n-----END BUNNY-----\n");
 
