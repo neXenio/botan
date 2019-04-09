@@ -6,6 +6,10 @@ CERTSTOR_LINUX -> 20190402
 linux_certstore
 </os_features>
 
+<requires>
+filesystem
+</requires>
+
 <header:public>
 certstor_linux.h
 </header:public>
