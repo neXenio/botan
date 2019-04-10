@@ -1,0 +1,97 @@
+/*
+* TLS Stream Helper
+* (C) 2018-2019 Jack Lloyd
+*     2018-2019 Hannes Rantzsch, Tim Oesterreich, Rene Meusel
+*
+* Botan is released under the Simplified BSD License (see license.txt)
+*/
+
+#ifndef BOTAN_ASIO_STREAM_BASE_H_
+#define BOTAN_ASIO_STREAM_BASE_H_
+
+#if defined(BOTAN_HAS_TLS) && defined(BOTAN_HAS_BOOST_ASIO)
+
+#include <boost/version.hpp>
+#if BOOST_VERSION > 106600
+
+#include <botan/tls_client.h>
+#include <botan/asio_context.h>
+#include <botan/asio_error.h>
+#include <botan/internal/asio_stream_core.h>
+
+namespace Botan {
+
+namespace TLS {
+
+enum handshake_type
+   {
+   client,
+   server
+   };
+
+
+/** \brief Base class for all Botan::TLS::Stream implementations.
+ *
+ * This template must be specialized for all the Botan::TLS::Channel to be used.
+ * Currently it only supports the Botan::TLS::Client channel that impersonates
+ * the client-side of a TLS connection.
+ *
+ * TODO: create a Botan::TLS::Server specialization
+ */
+template <class Channel>
+class StreamBase
+   {
+   };
+
+template <>
+class StreamBase<Botan::TLS::Client>
+   {
+   public:
+      StreamBase(Context& context)
+         : m_channel(m_core,
+                     *context.sessionManager,
+                     *context.credentialsManager,
+                     *context.policy,
+                     *context.randomNumberGenerator,
+                     context.serverInfo)
+         {
+         }
+
+      StreamBase(const StreamBase&) = delete;
+      StreamBase& operator=(const StreamBase&) = delete;
+
+      using handshake_type = Botan::TLS::handshake_type;
+
+   protected:
+      //! \brief validate the OpenSSL compatibility enum `handshake_type`
+      void validate_handshake_type(handshake_type type)
+         {
+         if(type != handshake_type::client)
+            {
+            throw Invalid_Argument("wrong handshake_type");
+            }
+         }
+
+      //! \brief validate the OpenSSL compatibility enum `handshake_type`
+      bool validate_handshake_type(handshake_type type, boost::system::error_code& ec)
+         {
+         if(type != handshake_type::client)
+            {
+            ec = Botan::TLS::error::invalid_argument;
+            return false;
+            }
+
+         return true;
+         }
+
+      Botan::TLS::StreamCore m_core;
+      Botan::TLS::Client     m_channel;
+   };
+
+}  // namespace TLS
+
+}  // namespace Botan
+
+#endif // BOOST_VERSION
+#endif // BOTAN_HAS_TLS && BOTAN_HAS_BOOST_ASIO
+#endif // BOTAN_ASIO_STREAM_BASE_H_
