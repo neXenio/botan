@@ -3,12 +3,8 @@ CERTSTOR_LINUX -> 20190402
 </defines>
 
 <os_features>
-linux_certstore
-</os_features>
-
-<requires>
 filesystem
-</requires>
+</os_features>
 
 <header:public>
 certstor_linux.h
