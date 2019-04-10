@@ -158,6 +158,68 @@ class BOTAN_PUBLIC_API(2,0) Certificate_Store_In_Memory final : public Certifica
       std::vector<std::shared_ptr<const X509_CRL>> m_crls;
    };
 
+class Flatfile_Certificate_Store_Impl;
+
+/**
+* Certificate Store that is backed by a file of PEMs of trusted CAs.
+*/
+class BOTAN_PUBLIC_API(2, 11) Flatfile_Certificate_Store : public Certificate_Store
+   {
+   public:
+      Flatfile_Certificate_Store();
+
+#if defined(BOTAN_TARGET_OS_HAS_FILESYSTEM)
+      Flatfile_Certificate_Store(const std::string& file);
+#endif
+
+      Flatfile_Certificate_Store(const Flatfile_Certificate_Store&) = default;
+      Flatfile_Certificate_Store(Flatfile_Certificate_Store&&) = default;
+      Flatfile_Certificate_Store& operator=(const Flatfile_Certificate_Store&) = default;
+      Flatfile_Certificate_Store& operator=(Flatfile_Certificate_Store&&) = default;
+
+      /**
+      * @return DNs for all certificates managed by the store
+      */
+      std::vector<X509_DN> all_subjects() const override;
+
+      /**
+      * Find a certificate by Subject DN and (optionally) key identifier
+      * @return the first certificate that matches
+      */
+      std::shared_ptr<const X509_Certificate> find_cert(
+         const X509_DN& subject_dn,
+         const std::vector<uint8_t>& key_id) const override;
+
+      /**
+      * Find all certificates with a given Subject DN.
+      * Subject DN and even the key identifier might not be unique.
+      */
+      std::vector<std::shared_ptr<const X509_Certificate>> find_all_certs(
+               const X509_DN& subject_dn, const std::vector<uint8_t>& key_id) const override;
+
+      /**
+      * Find a certificate by searching for one with a matching SHA-1 hash of
+      * public key.
+      * @return a matching certificate or nullptr otherwise
+      */
+      std::shared_ptr<const X509_Certificate>
+      find_cert_by_pubkey_sha1(const std::vector<uint8_t>& key_hash) const override;
+
+      /**
+       * @throws Botan::Not_Implemented
+       */
+      std::shared_ptr<const X509_Certificate>
+      find_cert_by_raw_subject_dn_sha256(const std::vector<uint8_t>& subject_hash) const override;
+
+      /**
+       * Fetching CRLs is not supported by this certificate store. This will
+       * always return an empty list.
+       */
+      std::shared_ptr<const X509_CRL> find_crl_for(const X509_Certificate& subject) const override;
+
+   private:
+      std::shared_ptr<Flatfile_Certificate_Store_Impl> m_impl;
+   };
 }
 
 #endif

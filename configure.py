@@ -436,6 +436,10 @@ def process_command_line(args): # pylint: disable=too-many-locals,too-many-state
                            help='distribution specific version',
                            default='unspecified')
 
+    build_group.add_option('--linux-certstore-default-file', metavar='STRING',
+                           help='distribution specific path to pem file with trusted CAs',
+                           default='/etc/ssl/certs/ca-certificates.crt')
+
     build_group.add_option('--maintainer-mode', dest='maintainer_mode',
                            action='store_true', default=False,
                            help="Enable extra warnings")
@@ -1860,6 +1864,8 @@ def create_template_vars(source_paths, build_paths, options, modules, cc, arch, 
         'version_datestamp': Version.datestamp(),
 
         'distribution_info': options.distribution_info,
+
+        'linux_certstore_default_file': options.linux_certstore_default_file,
 
         'macos_so_compat_ver': '%s.%s.0' % (Version.packed(), Version.so_rev()),
         'macos_so_current_ver': '%s.%s.%s' % (Version.packed(), Version.so_rev(), Version.patch()),

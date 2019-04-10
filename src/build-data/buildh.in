@@ -91,6 +91,10 @@
 #define BOTAN_OPTIMIZE_FOR_SIZE
 %{endif}
 
+#if defined(BOTAN_TARGET_OS_IS_LINUX)
+    #define BOTAN_LINUX_CERTSTORE_DEFAULT_FILE "%{linux_certstore_default_file}"
+#endif
+
 /*
 * Module availability definitions
 */
