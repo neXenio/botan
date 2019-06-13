@@ -184,6 +184,7 @@ class TLS_Client final : public Command, public Botan::TLS::Callbacks
                                    version, protocols_to_offer);
 
          bool first_active = true;
+         bool success = false;
 
          while(!client.is_closed())
             {
@@ -203,6 +204,8 @@ class TLS_Client final : public Command, public Botan::TLS::Callbacks
                      }
                   first_active = false;
                   }
+               success = true;
+               break;
                }
 
             struct timeval timeout = { 1, 0 };
@@ -274,6 +277,7 @@ class TLS_Client final : public Command, public Botan::TLS::Callbacks
             }
 
          ::close(m_sockfd);
+         std::exit(success ? 0 : 1);
          }
 
    private:
